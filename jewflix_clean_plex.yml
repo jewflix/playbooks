@@ -1,0 +1,105 @@
+---
+- hosts: localhost
+  connection: local
+  become: false
+
+  vars:
+    plex_retention: 120
+    plex_movies: /jewflix/plex/couchpotato
+    plex_tv: /jewflix/plex/pymedusa
+
+  tasks:
+    - name: Ensure the plex movies directory is present
+      tags:
+        - jfx_clean_plex
+        - jfx_clean_plex_movies
+      stat:
+        get_attributes: true
+        get_checksum: false
+        get_md5: false
+        get_mime: false
+        path: "{{ plex_movies }}"
+      register: _plex_movies
+    
+    - block:
+        - name: Gather a list of movies exceeding plex retention policy
+          find:
+            age: "{{ plex_retention|string + 'd' }}"
+            age_stamp: mtime
+            excludes: '.sync'
+            file_type: directory
+            paths: "{{ plex_movies }}"
+          register: _plex_find_movies
+
+        - name: Debug `_plex_find_movies`
+          debug:
+            msg: "{{ _plex_find_movies }}"
+            verbosity: 1
+ 
+        - name: Delete movies exceeding plex retention policy
+          become: true
+          become_user: "{{ plex_movies|basename }}"
+          file:
+            path: "{{ plex_movie_path }}"
+            state: absent
+          loop: "{{ q('list', _plex_find_movies.files|json_query('[].path'), wantlist=True) }}"
+          loop_control:
+            label: "{{ plex_movie_path }}"
+            loop_var: plex_movie_path
+          when:
+            - _plex_find_movies.files is defined
+            - _plex_find_movies.files|length > 0
+            - _plex_find_movies.files|json_query('[].path')|length > 0
+      tags:
+        - jfx_clean_plex
+        - jfx_clean_plex_movies
+      when: _plex_movies.stat.exists
+
+    - name: Ensure the plex tv directory is present
+      tags:
+        - jfx_clean_plex
+        - jfx_clean_plex_tv
+      stat:
+        get_attributes: true
+        get_checksum: false
+        get_md5: false
+        get_mime: false
+        path: "{{ plex_tv }}"
+      register: _plex_tv
+
+    - block:
+        - name: Gather a list of tv shows exceeding plex retention policy
+          find:
+            age: "{{ plex_retention|string + 'd' }}"
+            age_stamp: mtime
+            depth: 3
+            excludes: '.sync'
+            file_type: file
+            paths: "{{ plex_tv }}"
+            recurse: true
+          register: _plex_find_tv
+
+        - name: Debug `_plex_find_tv`
+          debug:
+            msg: "{{ _plex_find_tv }}"
+            verbosity: 1
+
+        - name: Delete tv shows exceeding plex retention policy
+          become: true
+          become_user: "{{ plex_tv|basename }}"
+          file:
+            path: "{{ plex_tv_path }}"
+            state: absent
+          loop: "{{ q('list', _plex_find_tv.files|json_query('[].path'), wantlist=True) }}"
+          loop_control:
+            label: "{{ plex_tv_path }}"
+            loop_var: plex_tv_path
+          when:
+            - _plex_find_tv.files is defined
+            - _plex_find_tv.files|length > 0
+            - _plex_find_tv.files|json_query('[].path')|length > 0
+      tags:
+        - jewflix_clean_plex
+        - jewflix_clean_plex_tv
+      when: _plex_tv.stat.exists
+...

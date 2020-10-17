@@ -1,0 +1,129 @@
+---
+- hosts: localhost
+  connection: local
+  become: false
+
+  vars:
+    transmission_retention: 30
+    transmission_host: localhost
+    transmission_port: 9091
+    transmission_root: /jewflix/transmission
+
+  tasks:
+    - name: Ensure the transmission root directory is present
+      tags: jfx_clean_td
+      stat:
+        get_attributes: true
+        get_checksum: false
+        get_md5: false
+        get_mime: false
+        path: "{{ transmission_root }}"
+      register: _transmission_root
+
+    - block:
+        - name: Gather a list of ignore files exceeding transmission retention policy
+          find:
+            age: "{{ transmission_retention|string + 'd' }}"
+            age_stamp: mtime
+            file_type: file
+            paths: "{{ transmission_root }}"
+            patterns: '*.ignore'
+            recurse: true
+          register: _transmission_find_ignore
+
+        - name: Debug `_transmission_find_ignore`
+          debug:
+            msg: "{{ _transmission_find_ignore }}"
+            verbosity: 1
+
+        - name: Delete ignore files exceeding transmission retention policy
+          become: true
+          become_user: couchpotato
+          file:
+            path: "{{ transmission_ignore_path }}"
+            state: absent
+          loop: "{{ q('list', _transmission_find_ignore.files|json_query('[].path'), wantlist=True) }}"
+          loop_control:
+            label: "{{ transmission_ignore_path }}"
+            loop_var: transmission_ignore_path
+          when:
+            - _transmission_find_ignore.files is defined
+            - _transmission_find_ignore.files|length > 0
+            - _transmission_find_ignore.files|json_query('[].path')|length > 0
+      tags: jfx_clean_td
+      when: _transmission_root.stat.exists
+
+    - name: Generate retention epoch time
+      tags: jfx_clean_td
+      set_fact:
+        transmission_epoch: "{{ ansible_date_time.epoch|int - (transmission_retention * 86400) }}"
+
+    - name: Fetch session id from transmission 
+      tags: jfx_clean_td
+      uri:
+        method: GET
+        status_code: 409
+        url: "{{ 'http://' + [transmission_host, transmission_port]|join(':') +
+                 '/transmission/rpc' }}"
+      register: _transmission_get
+        
+    - name: Debug `_transmission_get`
+      tags: jfx_clean_td
+      debug:
+        msg: "{{ _transmission_get }}"
+        verbosity: 1
+
+    - name: Gather a list of torrents
+      tags: jfx_clean_td
+      uri:
+        body:
+          arguments:
+            fields: ['id', 'name', 'addedDate']
+          method: torrent-get
+        body_format: json
+        headers:
+          X-Transmission-Session-Id: "{{ _transmission_get.x_transmission_session_id }}"
+        method: POST
+        return_content: true
+        status_code: 200
+        url: "{{ 'http://' + [transmission_host, transmission_port]|join(':') +
+                 '/transmission/rpc' }}"
+      register: _transmission_torrent_get
+
+    - name: Debug `_transmission_torrent_get`
+      tags: jfx_clean_td
+      debug:
+        msg: "{{ _transmission_torrent_get }}"
+        verbosity: 1
+
+    - name: Delete torrents exceeding transmission retention policy 
+      tags: jfx_clean_td
+      uri:
+        body:
+          arguments:
+            ids: '[ {{ torrent.id|int }} ]'
+            delete-local-data: true
+          method: torrent-remove
+        body_format: json
+        headers:
+          X-Transmission-Session-Id: "{{ _transmission_get.x_transmission_session_id }}"
+        method: POST
+        return_content: true
+        status_code: 200
+        url: "{{ 'http://' + [transmission_host, transmission_port]|join(':') +
+                 '/transmission/rpc' }}"
+      register: _transmission_torrent_remove
+      loop: "{{ _transmission_torrent_get.json.arguments.torrents|json_query('[].{id: id, name: name,  addedDate: addedDate}') }}"
+      loop_control:
+        label: "{{ torrent.name }}"
+        loop_var: torrent
+      when:
+        - _transmission_torrent_get.json.arguments.torrents|length > 0
+        - torrent.addedDate|int < transmission_epoch|int
+        
+    - name: Debug `_transmission_torrent_remove`
+      tags: jfx_clean_td
+      debug:
+        msg: "{{ _transmission_torrent_remove }}"
+        verbosity: 1
+...
