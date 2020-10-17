@@ -4,7 +4,7 @@
   become: false
 
   vars:
-    transmission_retention: 19
+    transmission_retention: 30
     transmission_host: localhost
     transmission_port: 9091
     transmission_root: /jewflix/transmission
