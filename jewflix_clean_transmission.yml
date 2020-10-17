@@ -11,7 +11,9 @@
 
   tasks:
     - name: Ensure the transmission root directory is present
-      tags: jfx_clean_td
+      tags:
+       - jfx_clean_td
+       - jfx_clean_td_ignore
       stat:
         get_attributes: true
         get_checksum: false
@@ -43,11 +45,15 @@
             label: "{{ path }}"
             loop_var: path
 
-      tags: jfx_clean_td
+      tags:
+        - jfx_clean_td
+        - jfx_clean_td_ignore
       when: _transmission_root.stat.exists
 
     - name: Generate retention epoch time
-      tags: jfx_clean_td
+      tags:
+        - jfx_clean_td
+        - jfx_clean_td_torrent
       set_fact:
         transmission_epoch: "{{ transmission_now|int - transmission_sec|int }}"
       vars:
@@ -55,7 +61,9 @@
         transmission_sec: "{{ transmission_retention * 86400 }}"
 
     - name: Fetch session id from transmission
-      tags: jfx_clean_td
+      tags:
+        - jfx_clean_td
+        - jfx_clean_td_torrent
       uri:
         method: GET
         status_code: 409
@@ -63,7 +71,9 @@
       register: _transmission_get
 
     - name: Gather a list of torrents
-      tags: jfx_clean_td
+      tags:
+        - jfx_clean_td
+        - jfx_clean_td_torrent
       uri:
         body:
           arguments:
@@ -78,7 +88,9 @@
       register: _transmission_torrent_get
 
     - name: Generate a list from torrent-get return values
-      tags: jfx_clean_td
+      tags:
+        - jfx_clean_td
+        - jfx_clean_td_torrent
       set_fact:
         transmission_list: "{{ transmission_list|default([]) + _transmission_list }}"
       loop: "{{ _transmission_torrent_get.json.arguments.torrents|json_query('[].{id: id, name: name,  addedDate: addedDate}') }}"
@@ -92,7 +104,9 @@
             addedDate: "{{ t.addedDate|int }}"
 
     - name: Delete torrents exceeding transmission retention policy
-      tags: jfx_clean_td
+      tags:
+        - jfx_clean_td
+        - jfx_clean_td_torrent
       uri:
         body:
           arguments:
