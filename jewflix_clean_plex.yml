@@ -85,7 +85,7 @@
             loop_var: plex_tv_path
 
       tags:
-        - jewflix_clean_plex
-        - jewflix_clean_plex_tv
+        - jfx_clean_plex
+        - jfx_clean_plex_tv
       when: _plex_tv.stat.exists
 ...
