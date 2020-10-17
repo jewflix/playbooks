@@ -19,48 +19,36 @@
         get_mime: false
         path: "{{ couchpotato_cfg }}"
       register: _couchpotato_cfg
-    
+
     - block:
+
         - name: Fetch couchpotato api key
           become: true
-          set_fact: 
+          set_fact:
             couchpotato_key: "{{ lookup('ini', 'api_key section=core file={{ couchpotato_cfg }}') }}"
-      
+
         - name: Gather a list of movies with status of done
           uri:
             method: GET
-            status_code: 200 
-            url: "{{ 'http://' + [couchpotato_host, couchpotato_port]|join(':') + 
-                     '/api/' +  couchpotato_key + 
+            status_code: 200
+            url: "{{ 'http://' + [couchpotato_host, couchpotato_port]|join(':') +
+                     '/api/' +  couchpotato_key +
                      '/movie.list?status=done' }}"
           register: _couchpotato_get
-
-        - name: Debug `_couchpotato_get`
-          debug:
-            msg: "{{ _couchpotato_get }}"
-            verbosity: 1
 
         - name: Delete movies with status of done
           uri:
             method: POST
             status_code: 200
-            url: "{{ 'http://' + [couchpotato_host, couchpotato_port]|join(':') + 
-                     '/api/' +  couchpotato_key + 
+            url: "{{ 'http://' + [couchpotato_host, couchpotato_port]|join(':') +
+                     '/api/' +  couchpotato_key +
                      '/movie.delete?id=' + couchpotato_id }}"
           register: _couchpotato_post
-          loop: "{{ q('list', _couchpotato_get.json|json_query('movies[]._id'), wantlist=True) }}"
+          loop: "{{ _couchpotato_get.json|json_query('movies[]._id') }}"
           loop_control:
             label: "{{ couchpotato_id }}"
             loop_var: couchpotato_id
-          when:
-            - _couchpotato_get.json is defined
-            - _couchpotato_get.json|length > 0
-            - _couchpotato_get.json|json_query('movies[]._id')|length > 0
 
-        - name: Debug `_couchpotato_post`
-          debug:
-            msg: "{{ _couchpotato_post }}"
-            verbosity: 1
       tags: jfx_clean_cp
       when: _couchpotato_cfg.stat.exists
 ...
