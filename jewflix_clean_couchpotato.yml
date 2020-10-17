@@ -12,6 +12,7 @@
     - name: Ensure the couchpotato config is present
       tags: jfx_clean_cp
       become: true
+      become_user: couchpotato
       stat:
         get_attributes: true
         get_checksum: false
@@ -24,6 +25,7 @@
 
         - name: Fetch couchpotato api key
           become: true
+          become_user: couchpotato
           set_fact:
             couchpotato_key: "{{ lookup('ini', 'api_key section=core file={{ couchpotato_cfg }}') }}"
 
