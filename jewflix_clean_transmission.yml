@@ -8,6 +8,7 @@
     transmission_host: localhost
     transmission_port: 9091
     transmission_root: /jewflix/transmission
+    transmission_url: "{{ 'http://' + [transmission_host, transmission_port]|join(':') + '/transmission/rpc' }}"
 
   tasks:
     - name: Ensure the transmission root directory is present
@@ -67,7 +68,7 @@
       uri:
         method: GET
         status_code: 409
-        url: "{{ 'http://' + [transmission_host, transmission_port]|join(':') + '/transmission/rpc' }}"
+        url: "{{ transmission_url }}"
       register: _transmission_get
 
     - name: Gather a list of torrents
@@ -84,7 +85,7 @@
           X-Transmission-Session-Id: "{{ _transmission_get.x_transmission_session_id }}"
         method: POST
         status_code: 200
-        url: "{{ 'http://' + [transmission_host, transmission_port]|join(':') + '/transmission/rpc' }}"
+        url: "{{ transmission_url }}"
       register: _transmission_torrent_get
 
     - name: Generate a list from torrent-get return values
@@ -119,8 +120,7 @@
         method: POST
         return_content: true
         status_code: 200
-        url: "{{ 'http://' + [transmission_host, transmission_port]|join(':') + '/transmission/rpc' }}"
-      register: _ttr
+        url: "{{ transmission_url }}"
       loop: "{{ transmission_list|default([]) }}"
       loop_control:
         label: "{{ torrent.name }}"
