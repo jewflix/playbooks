@@ -34,7 +34,7 @@
             method: GET
             status_code: 200
             url: "{{ 'http://' + [couchpotato_host, couchpotato_port]|join(':') +
-                     '/api/' +  couchpotato_key +
+                     '/api/' + couchpotato_key +
                      '/movie.list?status=done' }}"
           register: _couchpotato_get
 
@@ -43,7 +43,7 @@
             method: POST
             status_code: 200
             url: "{{ 'http://' + [couchpotato_host, couchpotato_port]|join(':') +
-                     '/api/' +  couchpotato_key +
+                     '/api/' + couchpotato_key +
                      '/movie.delete?id=' + couchpotato_id }}"
           register: _couchpotato_post
           loop: "{{ _couchpotato_get.json|json_query('movies[]._id') }}"
