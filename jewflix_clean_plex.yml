@@ -4,7 +4,7 @@
   become: false
 
   vars:
-    plex_retention: 120
+    plex_retention: 90
     plex_movies: /jewflix/plex/couchpotato
     plex_tv: /jewflix/plex/pymedusa
 
