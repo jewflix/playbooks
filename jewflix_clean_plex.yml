@@ -4,9 +4,11 @@
   become: false
 
   vars:
-    plex_retention: 90
     plex_movies: /jewflix/plex/couchpotato
+    plex_movies_retention: 60
     plex_tv: /jewflix/plex/pymedusa
+    plex_tv_retention: 90
+
 
   tasks:
     - name: Ensure the plex movies directory is present
@@ -25,7 +27,7 @@
 
         - name: Gather a list of movies exceeding plex retention policy
           find:
-            age: "{{ plex_retention|string + 'd' }}"
+            age: "{{ plex_movies_retention|string + 'd' }}"
             age_stamp: mtime
             excludes: '.sync'
             file_type: directory
@@ -64,7 +66,7 @@
 
         - name: Gather a list of tv shows exceeding plex retention policy
           find:
-            age: "{{ plex_retention|string + 'd' }}"
+            age: "{{ plex_tv_retention|string + 'd' }}"
             age_stamp: mtime
             depth: 3
             excludes: '.sync'
