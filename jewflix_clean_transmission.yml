@@ -14,7 +14,6 @@
     - name: Ensure the transmission root directory is present
       tags:
        - jfx_clean_td
-       - jfx_clean_td_ignore
       stat:
         get_attributes: true
         get_checksum: false
@@ -23,38 +22,9 @@
         path: "{{ transmission_root }}"
       register: _transmission_root
 
-    - block:
-
-        - name: Gather a list of ignore files exceeding transmission retention policy
-          find:
-            age: "{{ transmission_retention|string + 'd' }}"
-            age_stamp: mtime
-            file_type: file
-            paths: "{{ transmission_root }}"
-            patterns: '*.ignore'
-            recurse: true
-          register: _transmission_find_ignore
-
-        - name: Delete ignore files exceeding transmission retention policy
-          become: true
-          become_user: couchpotato
-          file:
-            path: "{{ path }}"
-            state: absent
-          loop: "{{ _transmission_find_ignore.files|json_query('[].path') }}"
-          loop_control:
-            label: "{{ path }}"
-            loop_var: path
-
-      tags:
-        - jfx_clean_td
-        - jfx_clean_td_ignore
-      when: _transmission_root.stat.exists
-
     - name: Generate retention epoch time
       tags:
         - jfx_clean_td
-        - jfx_clean_td_torrent
       set_fact:
         transmission_epoch: "{{ transmission_now|int - transmission_sec|int }}"
       vars:
@@ -64,7 +34,6 @@
     - name: Fetch session id from transmission
       tags:
         - jfx_clean_td
-        - jfx_clean_td_torrent
       uri:
         method: GET
         status_code: 409
@@ -74,7 +43,6 @@
     - name: Gather a list of torrents
       tags:
         - jfx_clean_td
-        - jfx_clean_td_torrent
       uri:
         body:
           arguments:
@@ -91,7 +59,6 @@
     - name: Generate a list from torrent-get return values
       tags:
         - jfx_clean_td
-        - jfx_clean_td_torrent
       set_fact:
         transmission_list: "{{ transmission_list|default([]) + _transmission_list }}"
       loop: "{{ _transmission_torrent_get.json.arguments.torrents|json_query('[].{id: id, name: name,  addedDate: addedDate}') }}"
@@ -107,7 +74,6 @@
     - name: Delete torrents exceeding transmission retention policy
       tags:
         - jfx_clean_td
-        - jfx_clean_td_torrent
       uri:
         body:
           arguments:
