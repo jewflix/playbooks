@@ -1,32 +1,65 @@
 ---
 - hosts: localhost
   connection: local
-  become: false
+  become: true
+  become_user: jewflix
 
   vars:
-    transmission_retention: 30
-    transmission_host: localhost
+    transmission_container: transmission_vpn
+    transmission_network: jewflix_dynamic_24
     transmission_port: 9091
-    transmission_root: /jewflix/transmission
-    transmission_url: "{{ 'http://' + [transmission_host, transmission_port]|join(':') + '/transmission/rpc' }}"
+    transmission_retention: 120
 
   tasks:
-    - name: Ensure the transmission root directory is present
+    - name: Generate temporary directory for python packages
       tags:
-       - jfx_clean_td
-      stat:
-        get_attributes: true
-        get_checksum: false
-        get_md5: false
-        get_mime: false
-        path: "{{ transmission_root }}"
-      register: _transmission_root
+        - jfx_clean_td
+      become: true
+      tempfile:
+        prefix: 'docker.'
+        state: directory
+      register: _docker_tempfile
 
-    - name: Generate retention epoch time
+    - name: Ensure docker python packages are installed
+      tags:
+        - jfx_clean_td
+      become: true
+      pip:
+        name: docker
+        state: present
+        virtualenv: "{{ _docker_tempfile.path }}"
+
+    - name: Retrieve facts about docker container
+      tags:
+        - jfx_clean_td
+      become: true
+      docker_container_info:
+        name: "{{ transmission_container }}"
+      register: _transmission_container
+      vars:
+        ansible_python_interpreter: "{{ _docker_tempfile.path + '/bin/python' }}"
+
+    - name: Ensure temporary directory is absent
+      tags:
+        - jfx_clean_td
+      become: true
+      file:
+        path: "{{ _docker_tempfile.path }}"
+        state: absent
+
+    - name: Debug `_transmission_container`
+      tags:
+        - jfx_clean_td
+      debug:
+        msg: "{{ _transmission_container }}"
+        verbosity: 1
+
+    - name: Generate transmission container and time facts
       tags:
         - jfx_clean_td
       set_fact:
         transmission_epoch: "{{ transmission_now|int - transmission_sec|int }}"
+        transmission_host: "{{ _transmission_container.container.NetworkSettings.Networks[transmission_network].IPAddress }}"
       vars:
         transmission_now: "{{ ansible_date_time.epoch }}"
         transmission_sec: "{{ transmission_retention * 86400 }}"
@@ -37,7 +70,7 @@
       uri:
         method: GET
         status_code: 409
-        url: "{{ transmission_url }}"
+        url: "{{ 'http://' + [transmission_host, transmission_port]|join(':') + '/transmission/rpc' }}"
       register: _transmission_get
 
     - name: Gather a list of torrents
@@ -53,7 +86,7 @@
           X-Transmission-Session-Id: "{{ _transmission_get.x_transmission_session_id }}"
         method: POST
         status_code: 200
-        url: "{{ transmission_url }}"
+        url: "{{ 'http://' + [transmission_host, transmission_port]|join(':') + '/transmission/rpc' }}"
       register: _transmission_torrent_get
 
     - name: Generate a list from torrent-get return values
@@ -86,7 +119,7 @@
         method: POST
         return_content: true
         status_code: 200
-        url: "{{ transmission_url }}"
+        url: "{{ 'http://' + [transmission_host, transmission_port]|join(':') + '/transmission/rpc' }}"
       loop: "{{ transmission_list|default([]) }}"
       loop_control:
         label: "{{ torrent.name }}"
