@@ -1,4 +1,4 @@
-# playbooks
+# jewflix-playbooks
 
 A collection of Jewflix Studios ansible playbooks.
 
