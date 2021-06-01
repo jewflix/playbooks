@@ -1,8 +1,6 @@
 ---
 - hosts: localhost
   connection: local
-  become: true
-  become_user: jewflix
 
   vars:
     transmission_container: transmission_vpn
@@ -14,7 +12,6 @@
     - name: Generate temporary directory for python packages
       tags:
         - jfx_clean_td
-      become: true
       tempfile:
         prefix: 'docker.'
         state: directory
@@ -23,7 +20,6 @@
     - name: Ensure docker python packages are installed
       tags:
         - jfx_clean_td
-      become: true
       pip:
         name: docker
         state: present
@@ -32,7 +28,6 @@
     - name: Retrieve facts about docker container
       tags:
         - jfx_clean_td
-      become: true
       docker_container_info:
         name: "{{ transmission_container }}"
       register: _transmission_container
@@ -42,7 +37,6 @@
     - name: Ensure temporary directory is absent
       tags:
         - jfx_clean_td
-      become: true
       file:
         path: "{{ _docker_tempfile.path }}"
         state: absent
