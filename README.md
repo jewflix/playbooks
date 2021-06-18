@@ -1,6 +1,6 @@
 # jewflix-playbooks
 
-A collection of Jewflix Studios ansible playbooks.
+A collection of Jewflix Studios playbooks.
 
 ## License
 
